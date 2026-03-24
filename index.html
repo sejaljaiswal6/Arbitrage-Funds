@@ -40,7 +40,6 @@ tbody td{padding:6px 8px;color:var(--color-text-primary);vertical-align:middle;}
 .note{font-size:11px;color:var(--color-text-secondary);margin-top:8px;line-height:1.5;}
 .warning{font-size:11px;background:#FAEEDA;color:#633806;padding:8px 12px;border-radius:var(--border-radius-md);margin-bottom:.75rem;line-height:1.5;}
 </style>
-<div class="wrap">
 <div class="tabs">
   <button class="tab active" onclick="setTab('all',this)">All funds</button>
   <button class="tab" onclick="setTab('Arbitrage',this)">Arbitrage (39)</button>
@@ -250,8 +249,6 @@ function render(){
     <td></td><td></td>
   </tr>`;
 
-  document.getElementById('tbody').innerHTML=rows+totRow;
-  document.getElementById('foot').textContent=`Arbitrage tab now shows all 39 AMFI-registered arbitrage funds. 13 funds marked "verify" exist per AMC scheme lists and INDmoney category data but individual AUM was not available from the sources searched — these are mostly very small/new funds. AUM data for confirmed funds is as of Feb–Mar 2026. BAF and Equity Savings remain unchanged from previous search.`;
-}
+
 render();
 </script>
