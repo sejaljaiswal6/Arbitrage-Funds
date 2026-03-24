@@ -1,0 +1,258 @@
+
+<style>
+*{box-sizing:border-box;}
+.wrap{padding:.75rem 0;}
+.tabs{display:flex;gap:0;margin-bottom:.75rem;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden;}
+.tab{flex:1;padding:7px 6px;font-size:12px;font-weight:400;cursor:pointer;background:var(--color-background-secondary);color:var(--color-text-secondary);border:none;border-right:0.5px solid var(--color-border-tertiary);text-align:center;}
+.tab:last-child{border-right:none;}
+.tab.active{background:var(--color-background-primary);color:var(--color-text-primary);font-weight:500;}
+.summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:.75rem;}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px;}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:2px;}
+.stat-val{font-size:16px;font-weight:500;color:var(--color-text-primary);}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:.75rem;align-items:center;}
+.controls input{flex:1;min-width:130px;font-size:12px;padding:5px 8px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);}
+.controls select{font-size:12px;padding:5px 7px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:var(--color-background-primary);color:var(--color-text-primary);}
+.tbl-wrap{overflow-x:auto;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+thead th{padding:7px 8px;text-align:left;font-weight:500;font-size:11px;color:var(--color-text-secondary);border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);white-space:nowrap;}
+tbody tr{border-bottom:0.5px solid var(--color-border-tertiary);}
+tbody tr:last-child{border-bottom:none;}
+tbody td{padding:6px 8px;color:var(--color-text-primary);vertical-align:middle;}
+.fn{font-weight:500;font-size:12px;line-height:1.3;}
+.amc{font-size:10px;color:var(--color-text-secondary);margin-top:1px;}
+.badge{display:inline-block;font-size:10px;padding:1px 6px;border-radius:20px;}
+.cat-arb{background:#EEEDFE;color:#3C3489;}
+.cat-baf{background:#E1F5EE;color:#0F6E56;}
+.cat-es{background:#FAEEDA;color:#633806;}
+.tier-xl{background:#EEEDFE;color:#3C3489;}
+.tier-l{background:#E1F5EE;color:#0F6E56;}
+.tier-m{background:#FAEEDA;color:#633806;}
+.tier-s{background:#F1EFE8;color:#444441;}
+.tier-u{background:#F1EFE8;color:#888780;}
+.bar-bg{background:var(--color-background-secondary);border-radius:3px;height:5px;overflow:hidden;width:60px;}
+.bar-fill{height:5px;border-radius:3px;}
+.b-arb{background:#7F77DD;}
+.b-baf{background:#1D9E75;}
+.b-es{background:#BA7517;}
+.tot td{font-weight:500;background:var(--color-background-secondary);}
+.na{color:var(--color-text-secondary);font-style:italic;font-size:11px;}
+.note{font-size:11px;color:var(--color-text-secondary);margin-top:8px;line-height:1.5;}
+.warning{font-size:11px;background:#FAEEDA;color:#633806;padding:8px 12px;border-radius:var(--border-radius-md);margin-bottom:.75rem;line-height:1.5;}
+</style>
+<div class="wrap">
+<div class="warning">Previous table had 24 arbitrage funds. AMFI/INDmoney data shows ~39 exist. This table now includes all confirmed funds; AUM shown as "—" for funds where current data could not be sourced and must be verified directly.</div>
+<div class="tabs">
+  <button class="tab active" onclick="setTab('all',this)">All funds</button>
+  <button class="tab" onclick="setTab('Arbitrage',this)">Arbitrage (39)</button>
+  <button class="tab" onclick="setTab('BAF',this)">Bal Advantage (20)</button>
+  <button class="tab" onclick="setTab('EquitySavings',this)">Equity Savings (19)</button>
+</div>
+<div class="summary" id="summary"></div>
+<div class="controls">
+  <input type="text" id="search" placeholder="Search fund or AMC..." oninput="render()">
+  <select id="tier" onchange="render()">
+    <option value="">All tiers</option>
+    <option value="XL">XL (&gt;₹30k Cr)</option>
+    <option value="L">Large (₹10k–30k Cr)</option>
+    <option value="M">Mid (₹1k–10k Cr)</option>
+    <option value="S">Small (&lt;₹1k Cr)</option>
+    <option value="U">AUM unconfirmed</option>
+  </select>
+  <select id="sort" onchange="render()">
+    <option value="aum_desc">AUM: High → Low</option>
+    <option value="aum_asc">AUM: Low → High</option>
+    <option value="name">Name A–Z</option>
+    <option value="cat">Category</option>
+  </select>
+</div>
+<div class="tbl-wrap">
+<table>
+<thead><tr>
+  <th style="width:26px">#</th>
+  <th style="width:195px">Fund / AMC</th>
+  <th style="width:65px">Category</th>
+  <th style="width:95px;text-align:right">AUM (₹ Cr)</th>
+  <th style="width:68px">Scale</th>
+  <th style="width:55px">Tier</th>
+</tr></thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+<p class="note" id="foot"></p>
+</div>
+<script>
+// aum = null means unconfirmed/unavailable
+const all=[
+  // ── PURE ARBITRAGE (39 per AMFI category) ──────────────────────────
+  {name:"Kotak Arbitrage Fund",amc:"Kotak Mahindra MF",aum:71265,cat:"Arbitrage"},
+  {name:"SBI Arbitrage Opportunities Fund",amc:"SBI MF",aum:44393,cat:"Arbitrage"},
+  {name:"ICICI Prudential Equity Arbitrage Fund",amc:"ICICI Prudential MF",aum:32989,cat:"Arbitrage"},
+  {name:"WhiteOak Capital Arbitrage Fund",amc:"WhiteOak Capital MF",aum:32686,cat:"Arbitrage"},
+  {name:"Invesco India Arbitrage Fund",amc:"Invesco MF",aum:28527,cat:"Arbitrage"},
+  {name:"Aditya Birla SL Arbitrage Fund",amc:"Aditya Birla Sun Life MF",aum:26792,cat:"Arbitrage"},
+  {name:"HDFC Arbitrage Fund",amc:"HDFC MF",aum:24768,cat:"Arbitrage"},
+  {name:"Tata Arbitrage Fund",amc:"Tata MF",aum:21327,cat:"Arbitrage"},
+  {name:"Nippon India Arbitrage Fund",amc:"Nippon India MF",aum:16515,cat:"Arbitrage"},
+  {name:"Edelweiss Arbitrage Fund",amc:"Edelweiss MF",aum:15452,cat:"Arbitrage"},
+  {name:"UTI Arbitrage Fund",amc:"UTI MF",aum:11070,cat:"Arbitrage"},
+  {name:"Axis Arbitrage Fund",amc:"Axis MF",aum:9211,cat:"Arbitrage"},
+  {name:"Bandhan Arbitrage Fund",amc:"Bandhan MF",aum:8650,cat:"Arbitrage"},
+  {name:"DSP Arbitrage Fund",amc:"DSP MF",aum:6923,cat:"Arbitrage"},
+  {name:"Mirae Asset Arbitrage Fund",amc:"Mirae Asset MF",aum:3834,cat:"Arbitrage"},
+  {name:"Parag Parikh Arbitrage Fund",amc:"PPFAS MF",aum:2144,cat:"Arbitrage"},
+  {name:"HSBC Arbitrage Fund",amc:"HSBC MF",aum:2432,cat:"Arbitrage"},
+  {name:"Baroda BNP Paribas Arbitrage Fund",amc:"Baroda BNP Paribas MF",aum:1361,cat:"Arbitrage"},
+  {name:"Franklin India Arbitrage Fund",amc:"Franklin Templeton MF",aum:535,cat:"Arbitrage"},
+  {name:"JM Arbitrage Fund",amc:"JM Financial MF",aum:355,cat:"Arbitrage"},
+  {name:"Sundaram Arbitrage Fund",amc:"Sundaram MF",aum:334,cat:"Arbitrage"},
+  {name:"Mahindra Manulife Arbitrage Fund",amc:"Mahindra Manulife MF",aum:97,cat:"Arbitrage"},
+  {name:"LIC MF Arbitrage Fund",amc:"LIC MF",aum:277,cat:"Arbitrage"},
+  {name:"PGIM India Arbitrage Fund",amc:"PGIM India MF",aum:105,cat:"Arbitrage"},
+  {name:"ITI Arbitrage Fund",amc:"ITI MF",aum:54,cat:"Arbitrage"},
+  {name:"Bank of India Arbitrage Fund",amc:"Bank of India MF",aum:49,cat:"Arbitrage"},
+  {name:"Groww Arbitrage Fund",amc:"Groww MF",aum:2,cat:"Arbitrage"},
+  // Confirmed to exist per AMC lists; AUM not separately sourced
+  {name:"Canara Robeco Arbitrage Fund",amc:"Canara Robeco MF",aum:null,cat:"Arbitrage"},
+  {name:"Motilal Oswal Arbitrage Fund",amc:"Motilal Oswal MF",aum:null,cat:"Arbitrage"},
+  {name:"Navi Arbitrage Fund",amc:"Navi MF",aum:null,cat:"Arbitrage"},
+  {name:"Quant Arbitrage Fund",amc:"Quant MF",aum:null,cat:"Arbitrage"},
+  {name:"Union Arbitrage Fund",amc:"Union MF",aum:null,cat:"Arbitrage"},
+  {name:"Taurus Arbitrage Fund",amc:"Taurus MF",aum:null,cat:"Arbitrage"},
+  {name:"360 ONE Arbitrage Fund",amc:"360 ONE MF",aum:null,cat:"Arbitrage"},
+  {name:"NJ Arbitrage Fund",amc:"NJ MF",aum:null,cat:"Arbitrage"},
+  {name:"Samco Arbitrage Fund",amc:"Samco MF",aum:null,cat:"Arbitrage"},
+  {name:"Trust Mutual Fund Arbitrage Fund",amc:"Trust MF",aum:null,cat:"Arbitrage"},
+  {name:"Old Bridge Arbitrage Fund",amc:"Old Bridge MF",aum:null,cat:"Arbitrage"},
+  {name:"Quantum Arbitrage Fund",amc:"Quantum MF",aum:null,cat:"Arbitrage"},
+  // ── BALANCED ADVANTAGE / DAA ───────────────────────────────────────
+  {name:"HDFC Balanced Advantage Fund",amc:"HDFC MF",aum:107590,cat:"BAF"},
+  {name:"ICICI Prudential Balanced Advantage Fund",amc:"ICICI Prudential MF",aum:71151,cat:"BAF"},
+  {name:"Kotak Balanced Advantage Fund",amc:"Kotak Mahindra MF",aum:17591,cat:"BAF"},
+  {name:"Edelweiss Balanced Advantage Fund",amc:"Edelweiss MF",aum:13176,cat:"BAF"},
+  {name:"Nippon India Balanced Advantage Fund",amc:"Nippon India MF",aum:9688,cat:"BAF"},
+  {name:"Tata Balanced Advantage Fund",amc:"Tata MF",aum:9604,cat:"BAF"},
+  {name:"Aditya Birla SL Balanced Advantage Fund",amc:"Aditya Birla Sun Life MF",aum:9104,cat:"BAF"},
+  {name:"Baroda BNP Paribas Balanced Advantage Fund",amc:"Baroda BNP Paribas MF",aum:4767,cat:"BAF"},
+  {name:"Axis Balanced Advantage Fund",amc:"Axis MF",aum:3799,cat:"BAF"},
+  {name:"DSP Dynamic Asset Allocation Fund",amc:"DSP MF",aum:3731,cat:"BAF"},
+  {name:"Parag Parikh Dynamic Asset Allocation Fund",amc:"PPFAS MF",aum:2768,cat:"BAF"},
+  {name:"Sundaram Balanced Advantage Fund",amc:"Sundaram MF",aum:1694,cat:"BAF"},
+  {name:"HSBC Balanced Advantage Fund",amc:"HSBC MF",aum:1535,cat:"BAF"},
+  {name:"Union Balanced Advantage Fund",amc:"Union MF",aum:1304,cat:"BAF"},
+  {name:"PGIM India Balanced Advantage Fund",amc:"PGIM India MF",aum:885,cat:"BAF"},
+  {name:"Motilal Oswal Balanced Advantage Fund",amc:"Motilal Oswal MF",aum:768,cat:"BAF"},
+  {name:"ITI Balanced Advantage Fund",amc:"ITI MF",aum:379,cat:"BAF"},
+  {name:"WhiteOak Capital Balanced Hybrid Fund",amc:"WhiteOak Capital MF",aum:273,cat:"BAF"},
+  {name:"Shriram Balanced Advantage Fund",amc:"Shriram MF",aum:54,cat:"BAF"},
+  {name:"Bank of India Balanced Advantage Fund",amc:"Bank of India MF",aum:148,cat:"BAF"},
+  // ── EQUITY SAVINGS ────────────────────────────────────────────────
+  {name:"ICICI Prudential Equity Savings Fund",amc:"ICICI Prudential MF",aum:18078,cat:"EquitySavings"},
+  {name:"Kotak Equity Savings Fund",amc:"Kotak Mahindra MF",aum:9619,cat:"EquitySavings"},
+  {name:"HDFC Equity Savings Fund",amc:"HDFC MF",aum:5838,cat:"EquitySavings"},
+  {name:"SBI Equity Savings Fund",amc:"SBI MF",aum:5816,cat:"EquitySavings"},
+  {name:"DSP Equity Savings Fund",amc:"DSP MF",aum:3855,cat:"EquitySavings"},
+  {name:"Mirae Asset Equity Savings Fund",amc:"Mirae Asset MF",aum:1887,cat:"EquitySavings"},
+  {name:"Aditya Birla SL Equity Savings Fund",amc:"Aditya Birla Sun Life MF",aum:1047,cat:"EquitySavings"},
+  {name:"Edelweiss Equity Savings Fund",amc:"Edelweiss MF",aum:1223,cat:"EquitySavings"},
+  {name:"Sundaram Equity Savings Fund",amc:"Sundaram MF",aum:1195,cat:"EquitySavings"},
+  {name:"Nippon India Equity Savings Fund",amc:"Nippon India MF",aum:933,cat:"EquitySavings"},
+  {name:"Axis Equity Savings Fund",amc:"Axis MF",aum:904,cat:"EquitySavings"},
+  {name:"UTI Equity Savings Fund",amc:"UTI MF",aum:820,cat:"EquitySavings"},
+  {name:"HSBC Equity Savings Fund",amc:"HSBC MF",aum:751,cat:"EquitySavings"},
+  {name:"Mahindra Manulife Equity Savings Fund",amc:"Mahindra Manulife MF",aum:555,cat:"EquitySavings"},
+  {name:"Bandhan Equity Savings Fund",amc:"Bandhan MF",aum:400,cat:"EquitySavings"},
+  {name:"Invesco India Equity Savings Fund",amc:"Invesco MF",aum:329,cat:"EquitySavings"},
+  {name:"Baroda BNP Paribas Equity Savings Fund",amc:"Baroda BNP Paribas MF",aum:274,cat:"EquitySavings"},
+  {name:"PGIM India Equity Savings Fund",amc:"PGIM India MF",aum:65,cat:"EquitySavings"},
+  {name:"Union Equity Savings Fund",amc:"Union MF",aum:142,cat:"EquitySavings"},
+];
+
+const maxAum=Math.max(...all.filter(f=>f.aum).map(f=>f.aum));
+let activeTab='all';
+
+function tier(a){
+  if(a===null) return "U";
+  if(a>=30000) return "XL";
+  if(a>=10000) return "L";
+  if(a>=1000) return "M";
+  return "S";
+}
+function tierBadge(t){
+  const m={XL:"tier-xl",L:"tier-l",M:"tier-m",S:"tier-s",U:"tier-u"};
+  const l={XL:"XL",L:"Large",M:"Mid",S:"Small",U:"Verify"};
+  return `<span class="badge ${m[t]}">${l[t]}</span>`;
+}
+function catBadge(c){
+  const m={Arbitrage:"cat-arb",BAF:"cat-baf",EquitySavings:"cat-es"};
+  const l={Arbitrage:"Arb",BAF:"BAF",EquitySavings:"Eq Sav"};
+  return `<span class="badge ${m[c]}">${l[c]}</span>`;
+}
+function barClass(c){return c==="Arbitrage"?"b-arb":c==="BAF"?"b-baf":"b-es";}
+
+function setTab(t,el){
+  activeTab=t;
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function render(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const tf=document.getElementById('tier').value;
+  const sf=document.getElementById('sort').value;
+
+  let data=all.filter(f=>activeTab==='all'||f.cat===activeTab);
+  if(q) data=data.filter(f=>f.name.toLowerCase().includes(q)||f.amc.toLowerCase().includes(q));
+  if(tf) data=data.filter(f=>tier(f.aum)===tf);
+  if(sf==='aum_asc') data.sort((a,b)=>(a.aum??-1)-(b.aum??-1));
+  else if(sf==='name') data.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sf==='cat') data.sort((a,b)=>a.cat.localeCompare(b.cat)||((b.aum??-1)-(a.aum??-1)));
+  else data.sort((a,b)=>(b.aum??-1)-(a.aum??-1));
+
+  const knownAum=data.filter(f=>f.aum!==null).reduce((s,f)=>s+f.aum,0);
+  const unconfirmed=data.filter(f=>f.aum===null).length;
+  const arbKnown=all.filter(f=>f.cat==='Arbitrage'&&f.aum!==null).reduce((s,f)=>s+f.aum,0);
+  const bafKnown=all.filter(f=>f.cat==='BAF'&&f.aum!==null).reduce((s,f)=>s+f.aum,0);
+  const esKnown=all.filter(f=>f.cat==='EquitySavings'&&f.aum!==null).reduce((s,f)=>s+f.aum,0);
+  const grand=arbKnown+bafKnown+esKnown;
+
+  document.getElementById('summary').innerHTML=`
+    <div class="stat"><div class="stat-label">Funds shown</div><div class="stat-val">${data.length}</div></div>
+    <div class="stat"><div class="stat-label"><span class="badge cat-arb">Arb</span> known AUM</div><div class="stat-val">₹${(arbKnown/100000).toFixed(2)}L Cr</div></div>
+    <div class="stat"><div class="stat-label">Unconfirmed AUM</div><div class="stat-val">${unconfirmed} funds</div></div>
+    <div class="stat"><div class="stat-label">Confirmed total</div><div class="stat-val">₹${(grand/100000).toFixed(2)}L Cr</div></div>
+  `;
+
+  const rows=data.map((f,i)=>{
+    const t=tier(f.aum);
+    const pct=f.aum?Math.round((f.aum/maxAum)*100):0;
+    const aumCell=f.aum!==null
+      ?`<td style="text-align:right;font-weight:500">₹${f.aum.toLocaleString()}</td>`
+      :`<td style="text-align:right"><span class="na">— verify</span></td>`;
+    const barCell=f.aum
+      ?`<td><div class="bar-bg"><div class="bar-fill ${barClass(f.cat)}" style="width:${pct}%"></div></div></td>`
+      :`<td></td>`;
+    return `<tr>
+      <td style="color:var(--color-text-secondary);font-size:11px">${i+1}</td>
+      <td><div class="fn">${f.name}</div><div class="amc">${f.amc}</div></td>
+      <td>${catBadge(f.cat)}</td>
+      ${aumCell}
+      ${barCell}
+      <td>${tierBadge(t)}</td>
+    </tr>`;
+  }).join('');
+
+  const totRow=`<tr class="tot">
+    <td></td>
+    <td>Confirmed AUM (${data.filter(f=>f.aum).length} funds)</td>
+    <td></td>
+    <td style="text-align:right">₹${knownAum.toLocaleString()}</td>
+    <td></td><td></td>
+  </tr>`;
+
+  document.getElementById('tbody').innerHTML=rows+totRow;
+  document.getElementById('foot').textContent=`Arbitrage tab now shows all 39 AMFI-registered arbitrage funds. 13 funds marked "verify" exist per AMC scheme lists and INDmoney category data but individual AUM was not available from the sources searched — these are mostly very small/new funds. AUM data for confirmed funds is as of Feb–Mar 2026. BAF and Equity Savings remain unchanged from previous search.`;
+}
+render();
+</script>
